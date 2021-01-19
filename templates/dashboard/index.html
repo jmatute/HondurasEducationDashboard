@@ -17,8 +17,8 @@
      }
 
      #map {
-	height: 400px;
-	width:  600px;
+	height: 310px;
+	width:  400px;
 	margin-bottom: 1em;
      }
      .dropdown {
@@ -129,7 +129,7 @@
 
                     function UpdateProgressPlot(progress_data){
                           var margin = {top: 20, right: 120, bottom: 50, left: 60},
-                                width =  760 - margin.left - margin.right,
+                                width =  560 - margin.left - margin.right,
                                 height = 315 - margin.top - margin.bottom;
             
 
@@ -424,7 +424,7 @@
 
               // set the dimensions and margins of the graph
 			var margin = {top: 20, right: 120, bottom: 50, left: 60},
-			    width =  760 - margin.left - margin.right,
+			    width =  560 - margin.left - margin.right,
 			    height = 315 - margin.top - margin.bottom;
                  
 			  // define the plot size
@@ -781,15 +781,33 @@
    
          <!-- Start of Map Area -->
 
-         <div class="col-sm-3">
+         <div class="col-sm-6">
 		 	<div class="en description">
                 <h6>Data </h6>
 
-                <p>All Data shown here </p>
+                <p> All Data shown here is publicly available. The census data was extracted on December 2020 from the <a href="https://www.ine.gob.hn/">Honduran National Institute for Statistics (INE) </a>.
+                    The majority of indicators were extracted from <a href="https://data.humdata.org/"> The Humanitarian Data Exchange  </a> on December 2020 where a large part was based on the estimates computed by <a href="http://www.barrolee.com/"> Robert Barro and Jong-Wha Lee. </a>  </p>
+                    <p> Barro, Robert and Jong-Wha Lee, 2013, “A New Data Set of Educational Attainment in the World, 1950-2010.” Journal of Development Economics, vol 104, pp.184-198. </p>
+
+                    <p> Indicators on Education Index and Human Development Index (HDI) were extracted from the <a href="http://hdr.undp.org/en/data">Human Development Data Center</a></p>
+    
+                    <p> The current dashboard is written as a Django Application whose code is freely available at  <a href="https://github.com/jmatute/HondurasEducationDashboard">GitHub</a> 
+                    For more projects, you are welcom to explore the <a href="https://www.jmatute.de/sitemap/">Sitemap</a> or my Blog  <a href="https://www.jmatute.de/blog/archive/">Archives</a></p>
+
+
             </div>
 		 	<div class="sp description">
                 <h6>Data </h6>
+                
+                <p>
+                Todos los datos que se muestran aquí están a disposición del público. Los datos del censo fueron extraídos en diciembre de 2020 del <a href="https://www.ine.gob.hn/">Instituto Nacional de Estadística Hondureño (INE).</a> La mayoría de los indicadores se extrajeron del <a href="https://data.humdata.org"> Sistema de Intercambio de Datos Humanitarios ("The Humanitarian Data Exchange") </a> en diciembre de 2020, donde una gran parte fueron gracias al trabajo de Robert Barro y Jong-Wha Lee. </p>
+                
+                <p> Barro, Robert y Jong-Wha Lee, 2013, "A New Data Set of Educational Attainment in the World, 1950-2010". Journal of Development Economics, vol. 104, págs. 184 a 198. </p>
 
+                <p> Los indicadores sobre el índice de educación y el índice de desarrollo humano (IDH) se extrajeron del <a href="http://hdr.undp.org/en/data"> Centro de Datos sobre Desarrollo Humano.</a> </p>
+
+                 <p>El tablero actual está escrito como una aplicación Django cuyo código está disponible gratuitamente en <a href="https://github.com/jmatute/HondurasEducatinDashboard"> GitHub</a>. Para más proyectos, puedes explorar el <a href="https://www.jmatute.de/sitemap/"> mapa del sitio</a> o <a href="https:://www.jmatute.de/blog/archive/"> los archivos de mi blog.</a>
+                </p>
             </div>
 
          </div>
