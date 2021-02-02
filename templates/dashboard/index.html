@@ -79,21 +79,21 @@
                      let mapAnswer = "Si";
                      let mapIndicator = 400;
                      let map = null; 
-                     let markerBoxWidth = 16, markerBoxHeight = 16, refX = 8, refY = 8;
-                     let arrowPoints = [[0, 0], [0, 16], [16, 8]]; 
                      let fullProgressData = null;
                      let indexProgress = 0;
                      let currentProgressName = "{{progress_index_name}}";
                      let color_countries = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#650a33','#a65628','#000000']                  
-                     let currGen       = { data:[], idx:0, value:""};
-                     let currPrimary   = {data:[], idx:0, value:""};
                      let currProgressIndicator = 184;
+                     
+		     let currGen       = { data:[], idx:0, value:""};
+                     let currPrimary   = {data:[], idx:0, value:""};
                      let currSecondary = {data:[], idx:0, value:""};
                      let currTertiary  = {data:[], idx:0, value:""};
                      let simplePlotDims = {  margin: {top: 20, right: 10, bottom: 50, left: 60} };
-			         simplePlotDims.width  = 350 - simplePlotDims.margin.left - simplePlotDims.margin.right;
+                     simplePlotDims.width  = 350 - simplePlotDims.margin.left - simplePlotDims.margin.right;
                      simplePlotDims.height = 250 - simplePlotDims.margin.top  - simplePlotDims.margin.bottom;
-		     let widthProgress = 760;
+		     
+                     let widthProgress = 760;
 
                      function updateProgressPlot(){
                         if ( indexProgress == 0) {

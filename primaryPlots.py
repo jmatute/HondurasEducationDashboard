@@ -88,3 +88,14 @@ def GetPrimaryGradPlots(lang):
     return plots
 
 
+def PrimarySchoolingIndicatorsNames():
+
+    plot_indicators = ["SE.PRM.UNER.FE.ZS", "SE.PRM.UNER.MA.ZS","SE.PRM.UNER.ZS",
+                       "SE.PRM.CMPL.FE.ZS", "SE.PRM.CMPL.MA.ZS","SE.PRM.CMPL.ZS"]
+    plot_indicators.extend(GetListOfBarroLeeIndicators("PRM.CMPT"))
+    plot_indicators.extend(GetListOfBarroLeeIndicators("PRM.CMPT", True))
+    plot_indicators.extend(GetListOfBarroLeeIndicators("PRM.ICMP"))
+    plot_indicators.extend(GetListOfBarroLeeIndicators("PRM.ICMP", True))
+
+    return plot_indicators
+

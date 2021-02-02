@@ -48,4 +48,12 @@ def GetSecondaryInCompletionPlots(lang):
     return plots
 
 
+def SecondarySchoolingIndicatorsNames():
+    plot_indicators = []
+    plot_indicators.extend(GetListOfBarroLeeIndicators("SEC.CMPT"))
+    plot_indicators.extend(GetListOfBarroLeeIndicators("SEC.CMPT", True))
+    plot_indicators.extend(GetListOfBarroLeeIndicators("SEC.ICMP"))
+    plot_indicators.extend(GetListOfBarroLeeIndicators("SEC.ICMP", True))
+
+    return plot_indicators
 

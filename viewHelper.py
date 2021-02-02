@@ -111,6 +111,27 @@ def AddDataToPlot(plot, lang, en_dict, sp_dict,plot_indicators, multiplier = 1.0
     return len(total_years)
 
 
+
+def GetListOfBarroLeeIndicators(indicator, female= False):
+    indicators = set([])
+    decades = {  "15-19":["1519"],"20-29":["2024","2529"] ,"30-39":["3034","3539"], "40-49": ["4044","4549"], "50-59":["5054","5559"] ,"60-64":["6064"] }
+    
+    for key, value in decades.items():
+        for sub in value:
+            popIndicatorName = "BAR.POP." + sub
+            valueIndicatorName = "BAR."+ indicator + "." + sub
+            
+            if female:
+                valueIndicatorName += ".FE.ZS"
+                popIndicatorName += ".FE"
+            else:
+                valueIndicatorName += ".ZS"
+            indicators.add(popIndicatorName)
+            indicators.add(valueIndicatorName)
+    return indicators
+
+
+
 def AddBarroLeeDataToPlotDecades(plot, lang, indicator, female= False):
     total_years = set([])
 
@@ -193,12 +214,6 @@ def GetLiteracyRatePlotData(lang):
     if (tot <=3 ): p1.setType("P")
     plots.append(p1.getPlotDict(lang))
 
-    # It only has one year.....TODO create a pie chart
-    #plot_indicators = ["SE.LPV.PRIM.FE", "SE.LPV.PRIM.MA"]
-    #p2 = Plot( Text("Learning Poverty","Pobreza de Aprendizaje") , Text("children below minimum reading proficiency","por debajo de la capacidad mínima de lectura"), Text("Rate","Porcentaje"))
-    #tot = AddDataToPlot(p2, lang, indicators_en_def, indicators_sp_def, plot_indicators)
-    #if (tot == 1): p2.setType("P")
-    #plots.append(p2.getPlotDict(lang))
     return plots
 
 ##############################
@@ -262,5 +277,16 @@ def GetNoEducationPlots(lang):
     plots.append(GetBarroLeeNoEducationFemale(lang).getPlotDict(lang))
 
     return plots
+
+##############################################################################
+
+
+def AccessIndicatorsNames():
+
+    plot_indicators = ["SE.ADT.1524.LT.FE.ZS", "SE.ADT.1524.LT.MA.ZS", "SE.ADT.LITR.FE.ZS","SE.ADT.LITR.MA.ZS",
+                       "SE.SCH.LIFE.FE", "SE.SCH.LIFE.MA","SE.COM.DURS", "4.0.stud.15a24", "4.0.nini.15a24","4.0.studwork.15a24","4.0.work.15a24"]
+    plot_indicators.extend(GetListOfBarroLeeIndicators("NOED"))
+    plot_indicators.extend(GetListOfBarroLeeIndicators("NOED", True))
+    return plot_indicators
 
 

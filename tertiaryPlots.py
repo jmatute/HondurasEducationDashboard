@@ -46,3 +46,14 @@ def GetTertiaryInCompletionPlots(lang):
     plots.append(GetBarroLeeTerInCompleted(lang).getPlotDict(lang))
     plots.append(GetBarroLeeTerInCompleted(lang, True).getPlotDict(lang))
     return plots
+
+
+def TertiarySchoolingIndicatorsNames():
+    plot_indicators = []
+    plot_indicators.extend(GetListOfBarroLeeIndicators("TER.CMPT"))
+    plot_indicators.extend(GetListOfBarroLeeIndicators("TER.CMPT", True))
+    plot_indicators.extend(GetListOfBarroLeeIndicators("TER.ICMP"))
+    plot_indicators.extend(GetListOfBarroLeeIndicators("TER.ICMP", True))
+
+    return plot_indicators
+
