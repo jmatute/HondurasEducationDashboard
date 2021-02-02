@@ -1,0 +1,1265 @@
+{% extends "dashboard/base.html" %}
+
+{% load static %}
+
+{%block localStatic %}
+
+		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+		<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+
+<style type="text/css" media="screen">
+    main > .container {
+        padding: 30px 15px 0;
+    }
+     .description {
+         font-size:9pt;
+     }
+
+     #map {
+	height: 310px;
+	width:  400px;
+	margin-bottom: 1em;
+     }
+     .dropdown {
+	    display: inline-block;
+	   margin-bottom: 1em;
+     }
+     .info {
+    padding: 6px 8px;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255,255,255,0.8);
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-radius: 5px;
+   }
+     #dropdownProgressDrop {
+          background-color:inherit;
+          color:black;
+          font-size: large;
+     }
+     #dropdownGenDrop,   #dropdownPrimaryDrop, #dropdownTertiaryDrop, #dropdownSecondaryDrop {
+          background-color: white;
+          color:black;
+     }
+  
+     .plot {
+	margin-bottom:1em;
+     }
+     .legend {
+    line-height: 5px;
+    color: #555;
+	}
+	.legend i {
+	    width: 18px;
+	    height: 5px;
+	    float: left;
+	    margin-right: 8px;
+	    opacity: 0.7;
+	}
+    .subArea {
+        font-size: small;
+        margin: 0 auto;
+        display: flex;
+        justify-content: center;
+        width: 150px;
+    }
+    .subtitle {
+        font-size: small;
+        width: 200px;
+    }
+</style>
+		<script type="text/javascript">
+                     let administrativeMapLvl1 = null;
+		     let geojson = null;
+		     let mapData = {};
+                     let upperLimit = 1000.0;
+                     let lang = "en";
+                     let per1000 = true;
+                     let mapAnswer = "Si";
+                     let mapIndicator = 400;
+                     let map = null; 
+                     let markerBoxWidth = 16, markerBoxHeight = 16, refX = 8, refY = 8;
+                     let arrowPoints = [[0, 0], [0, 16], [16, 8]]; 
+                     let fullProgressData = null;
+                     let indexProgress = 0;
+                     let currentProgressName = "{{progress_index_name}}";
+                     let color_countries = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#650a33','#a65628','#000000']                  
+                     let currGen       = { data:[], idx:0, value:""};
+                     let currPrimary   = {data:[], idx:0, value:""};
+                     let currProgressIndicator = 184;
+                     let currSecondary = {data:[], idx:0, value:""};
+                     let currTertiary  = {data:[], idx:0, value:""};
+                     let simplePlotDims = {  margin: {top: 20, right: 10, bottom: 50, left: 60} };
+			         simplePlotDims.width  = 350 - simplePlotDims.margin.left - simplePlotDims.margin.right;
+                     simplePlotDims.height = 250 - simplePlotDims.margin.top  - simplePlotDims.margin.bottom;
+		     let widthProgress = 760;
+
+                     function updateProgressPlot(){
+                        if ( indexProgress == 0) {
+                            d3.selectAll(".subtitle").style("display","none");
+                            RedrawRegularProgressPlot();
+                        }
+                        if ( indexProgress == 1) {
+                            d3.selectAll(".subtitle").style("display","none");
+                            if (lang == "en") d3.selectAll(".en.vsLatin").style("display","block");
+                            if (lang == "sp") d3.selectAll(".sp.vsLatin").style("display","block");
+                           
+		            RedrawCompareToRegion("Latin America and the Caribbean","R");
+                        }
+                        if ( indexProgress == 2) {
+                            d3.selectAll(".subtitle").style("display","none");
+                            if( lang == "en") d3.selectAll(".en.vsWorld").style("display","block");
+                            if( lang == "sp") d3.selectAll(".sp.vsWorld").style("display","block");
+                   
+		            RedrawCompareToRegion("World","R");
+                        }
+                        if ( indexProgress == 3) {
+                            d3.selectAll(".subtitle").style("display","none");
+                            if(lang == "en") d3.selectAll(".en.vsMedDevelopment").style("display","block");
+                            if(lang == "sp") d3.selectAll(".sp.vsMedDevelopment").style("display","block");
+
+                            RedrawCompareToRegion("Medium human development","D");
+                        }
+                    
+			d3.select("#dropdownProgressDrop").text(currentProgressName);
+		     }
+
+                    function RedrawRegularProgressPlot(){
+                          let progress_data = [];
+                          for(var i = 0;i < fullProgressData.length; i++){
+                              if( fullProgressData[i].type == "C"){
+                                  progress_data.push(fullProgressData[i]);
+                              }
+                          }     
+                          UpdateProgressPlot(progress_data);
+                    }
+
+
+                    function UpdateProgressPlot(progress_data){
+                          var margin = {top: 20, right: 120, bottom: 50, left: 60},
+                                width =  widthProgress - margin.left - margin.right,
+                                height = 315 - margin.top - margin.bottom;
+            
+
+                        var sumstat = d3.nest().key(function(d) { return d.region;}).entries(progress_data);
+                        var res = sumstat.map(function(d){ return d.key }) // list of group names
+                        var color = d3.scaleOrdinal().domain(res).range(color_countries);
+			var x = d3.scaleLinear().domain(d3.extent(progress_data, function(d) { return  d.year })).range([ 0, width ]);
+			            var xYear = d3.scaleLinear().domain(d3.extent(progress_data, function(d) { return  new Date(d.year,00,01); })).range([ 0, width ]);
+			            var y = d3.scaleLinear().domain([d3.min(progress_data, function(d){return +d.n;}) , d3.max(progress_data, function(d) { return +d.n; })])
+			                                    .range([ height, 0 ]);
+                        var svg = d3.select("#innerProgressPlot");
+                        var lines = svg.selectAll(".line").remove().exit().data(sumstat);
+                        lines.enter().append("path").attr("class","line")
+				            .attr("fill", "none")
+				            .attr("stroke", function(d){ return color(d.key) })
+                            .attr("stroke-width", function(d){ if (d.key.trim() == "Honduras") return 3; else 1.5; })
+                            .merge(lines).transition().duration(1000)
+				            .attr("d", function(d){
+                                  return d3.line()
+                                    .x(function(d) { return x(d.year); })
+                                    .y(function(d) { return y(+d.n); })
+                                    (d.values)
+                            });
+                        svg.select("#prXaxis").transition().duration(1000).call(d3.axisBottom(xYear).ticks(5).tickFormat(d3.timeFormat("%Y")));
+		        svg.select("#prYaxis").transition().duration(1000).call(d3.axisLeft(y).ticks(5));
+                        d3.select("#prLabelY").text(currentProgressName);
+                    
+			var yearTxt = "Year";
+			if (lang == "sp") yearTxt = "Año";
+                        d3.select("#prLabelx").text(yearTxt);
+		
+		    }
+
+                    
+                    function RedrawCompareToRegion(regName, typeRegion){
+                          let progress_data = [];
+                          let tmp_last = [];
+                          let curData = {};
+
+                        for(var i = 0;i < fullProgressData.length; i++){
+                              if( fullProgressData[i].type == typeRegion & fullProgressData[i].region == regName) {
+                                  curData[fullProgressData[i].year] = fullProgressData[i];
+                                  cur = fullProgressData[i];
+                                  newElem = { 'region': cur.region,'year': cur.year, 'n':0.0 };
+                                  tmp_last.push(newElem); 
+                             }
+                          }     
+
+                          for(var i = 0;i < fullProgressData.length; i++){
+                              if( fullProgressData[i].type == "C"){
+                                  cur = fullProgressData[i];
+                                  newElem = { 'region': cur.region,'year': cur.year, 'n':cur.n - curData[cur.year].n };
+                                  progress_data.push(newElem);
+                              }
+                          }    
+                          for(var i = 0; i < tmp_last.length; i++)
+                              progress_data.push(tmp_last[i]);
+                          UpdateProgressPlot(progress_data);
+                    }
+
+
+
+
+          function CreateLegend(colorFunc, keys, identifier , prefix){
+			    var svg = d3.select(identifier);
+                let dims = simplePlotDims;
+			    let yStep = 15;
+                for(var i =0; i  < keys.length; i++){
+			       svg.append("circle").attr("cx", dims.margin.left + 10).attr("cy",  yStep*i + 10 ).attr("r", 4).style("fill", colorFunc(keys[i]) );
+			       svg.append("text").attr("x",   dims.margin.left + 15).attr("y",   yStep*i + 15).attr("id", "lbl"+ prefix+i ).attr("class","lbl").text(keys[i] ).style("font-size", "10px").attr("alignment-baseline","middle")
+                }
+          }
+
+          function initPlot(identifier,current_data, prefix, title){
+                      // A line plot 
+                      let dims = simplePlotDims;
+                      d3.select(identifier).attr("width", dims.width+ dims.margin.left + dims.margin.right).attr("height", dims.height+ dims.margin.top+ dims.margin.bottom  );
+			          var svg = d3.select(identifier).append("g").attr("transform", "translate(" + dims.margin.left + "," + dims.margin.top + ")").attr("id","inner"+ prefix+ "Plot");
+                      var sumstat = d3.nest().key(function(d) { return d.type;}).entries(current_data);
+                      var x = d3.scaleLinear().domain(d3.extent(current_data, function(d) { return  d.year; })).range([ 0, dims.width ]);
+                      var xYear = d3.scaleLinear().domain(d3.extent(current_data, function(d) { return  new Date(d.year,00,01); })).range([ 0, dims.width ]);
+			          var y = d3.scaleLinear().domain([d3.min(current_data, function(d){return +d.n;})    , d3.max(current_data, function(d) { return +d.n; })]).range([ dims.height, 0 ]);
+			  
+                      svg.append("g").attr("transform", "translate(0," + dims.height + ")")
+                         .attr("id",prefix+"Xaxis").call(d3.axisBottom(xYear).ticks(5).tickFormat(d3.timeFormat("%Y")));
+                      svg.append("g").attr("id",prefix+"Yaxis").call(d3.axisLeft(y).ticks(6));
+			  
+                      var res = sumstat.map(function(d){ return d.key }); 
+                      var color = d3.scaleOrdinal().domain(res).range(color_countries);
+                      
+			          svg.selectAll(".line").data(sumstat)
+			             .enter().append("path")
+                         .attr("class","line")
+				         .attr("fill", "none")
+				         .attr("stroke", function(d){ return color(d.key) })
+                         .attr("stroke-width", function(d){ return 1.5; })
+				         .attr("d", function(d){
+				         return d3.line()
+				           .x(function(d) { return x(d.year); })
+				           .y (function(d) { return y(+d.n); })
+				         (d.values)
+			    	     });
+                   /* add labels*/
+	          var yearTxt = "Year";
+	          if (lang == "sp") yearTxt = "Año";
+	        
+		   svg.append("text").attr("text-anchor", "end").attr("x", (dims.width + dims.margin.left + dims.margin.right)/2).attr("y", dims.height + dims.margin.top + 20).attr("id", prefix+ "Labelx") .text(yearTxt);
+
+                   svg.append("text").attr("text-anchor", "end").attr("transform", "rotate(-90)")
+    			   .attr("y",  -30 ).attr("id", prefix+"LabelY").attr("x", -dims.margin.top ).text(title).style("font-size","12px");
+         
+                    CreateLegend(color, res, identifier);
+          }
+
+
+          function updateLegend(colorFunc, keys, identifier, prefix){
+
+                var svg = d3.select(identifier);
+                var circles = svg.selectAll("circle").remove().exit();
+                var labels = svg.selectAll(".lbl").remove().exit();
+                                
+                let dims = simplePlotDims;
+			    let yStep = 15;
+                for(var i =0; i  < keys.length; i++){
+			       svg.append("circle").attr("cx", dims.margin.left + 10).attr("cy",  yStep*i + 10 ).attr("r", 4).style("fill", colorFunc(keys[i]) );
+			       svg.append("text").attr("x",   dims.margin.left + 15).attr("y",   yStep*i + 15).attr("id", "lbl"+ prefix+i ).attr("class","lbl").text(keys[i] ).style("font-size", "10px").attr("alignment-baseline","middle")
+                }
+
+          }
+          
+          function updatePlot(identifier, current_data, prefix, title){
+
+                let dims = simplePlotDims;
+                var sumstat = d3.nest().key(function(d) { return d.type;}).entries(current_data);
+                var res = sumstat.map(function(d){ return d.key }) // list of group names
+                var x = d3.scaleLinear().domain(d3.extent(current_data, function(d) { return  d.year; })).range([ 0, dims.width ]);
+                var xYear = d3.scaleLinear().domain(d3.extent(current_data, function(d) { return  new Date(d.year,00,01); })).range([ 0, dims.width ]);
+   	            var y = d3.scaleLinear().domain([d3.min(current_data, function(d){return +d.n;})    , d3.max(current_data, function(d) { return +d.n; })]).range([ dims.height, 0 ]);
+                
+                var res = sumstat.map(function(d){ return d.key }); 
+                var color = d3.scaleOrdinal().domain(res).range(color_countries);
+
+                 var svg = d3.select("#inner"+prefix+"Plot");
+                 var lines = svg.selectAll(".line").remove().exit().data(sumstat);
+
+                lines.enter().append("path").attr("class","line")
+				            .attr("fill", "none")
+				            .attr("stroke", function(d){ return color(d.key) })
+                            .attr("stroke-width", 1.5 )
+                            .merge(lines).transition().duration(1000)
+				            .attr("d", function(d){
+                                  return d3.line()
+                                    .x(function(d) { return x(d.year); })
+                                    .y(function(d) { return y(+d.n); })
+                                    (d.values)
+                            });
+
+
+			var yearTxt = "Year";
+			if (lang == "sp") yearTxt = "Año";
+
+                        svg.select("#" + prefix+ "Xaxis").transition().duration(1000).call(d3.axisBottom(xYear).ticks(5).tickFormat(d3.timeFormat("%Y")));
+			            
+
+		       svg.select("#" + prefix + "Yaxis").transition().duration(1000).call(d3.axisLeft(y).ticks(5));
+                       
+
+			d3.select("#" + prefix + "LabelY").text(title);
+			d3.select("#" + prefix + "Labelx").text(yearTxt);
+          
+                 updateLegend(color, res, identifier, prefix);
+            }
+
+
+
+          function callToInit(baseUrl, dataObject, plotIdentifier, subtitleIdentifier, prefix ){
+		baseUrl += "&lang=" + lang;
+                d3.json(baseUrl).then(function(data){
+                    dataObject.data = data;
+                    let progress_data = dataObject.data[dataObject.idx].items;
+                    d3.selectAll(subtitleIdentifier).text(dataObject.data[dataObject.idx].subtitle);
+                    initPlot(plotIdentifier, progress_data, prefix, dataObject.data[dataObject.idx].title);
+                });
+          }
+
+
+          function initGenPlot(){
+                 currGen.value = "literacy";
+	         var baseUrl = "{% url 'getGeneralAccessPlot'%}?name=literacy";            
+                 callToInit(baseUrl, currGen, "#genAccessPlot", ".subtitleGen", "gen");
+                 d3.selectAll("#genNext").style("display","none");
+                 d3.selectAll("#genPrev").style("display","none"); 
+          }
+
+          function initPrimaryPlot(){
+	        currPrimary.value = "completed";
+                var baseUrl = "{% url 'getPrimarySchoolingPlot' %}?name=completed";
+                callToInit(baseUrl, currPrimary, "#primarySchoolingPlot", ".subtitlePrimary", "pri");
+          }
+
+ 	      function initSecondaryPlot(){
+	         currSecondary.value = "completed";
+                 var baseUrl = "{% url 'getSecondarySchoolingPlot' %}?name=completed";
+                 callToInit(baseUrl, currSecondary, "#secondarySchoolingPlot", ".subtitleSecondary", "sec");
+          }
+          
+          function initTertiaryPlot(){
+	         currTertiary.value = "completed";
+                var baseUrl = "{% url 'getTertiarySchoolingPlot' %}?name=completed";
+                callToInit(baseUrl, currTertiary, "#tertiarySchoolingPlot", ".subtitleTertiary", "ter"); 
+          }
+
+          function initLinearPlots(){
+                initGenPlot();
+                initPrimaryPlot();
+                initSecondaryPlot();
+                initTertiaryPlot();
+          }
+
+          function PlusPlot(dataObject, subtitleIdentifier, plotIdentifier, prefix){
+               var totElems = dataObject.data.length;
+               dataObject.idx = (dataObject.idx + 1)%totElems;
+               d3.selectAll(subtitleIdentifier).text(dataObject.data[dataObject.idx].subtitle);
+               let cur_data = dataObject.data[dataObject.idx].items;
+               updatePlot(plotIdentifier, cur_data, prefix, dataObject.data[dataObject.idx].title);
+          }
+          
+          function MinusPlot(dataObject, subtitleIdentifier, plotIdentifier, prefix){
+               var totElems = dataObject.data.length;
+               dataObject.idx = (dataObject.idx - 1);
+               if( dataObject.idx < 0 ) dataObject.idx = totElems -1;
+               d3.selectAll(subtitleIdentifier).text(dataObject.data[dataObject.idx].subtitle);
+               let cur_data = dataObject.data[dataObject.idx].items;
+               updatePlot(plotIdentifier, cur_data, prefix, dataObject.data[dataObject.idx].title);
+          }
+          
+
+          function PlusGenPlot(){       PlusPlot(currGen, ".subtitleGen", "#genAccessPlot", "gen"); }
+          function MinusGenPlot(){      MinusPlot(currGen, ".subtitleGen", "#genAccessPlot", "gen");}
+        
+          function PlusPrimaryPlot(){   PlusPlot(currPrimary, ".subtitlePrimary","#primarySchoolingPlot","pri"); }
+          function MinusPrimaryPlot(){  MinusPlot(currPrimary, ".subtitlePrimary","#primarySchoolingPlot","pri"); }
+
+          function PlusSecondaryPlot(){ PlusPlot(currSecondary, ".subtitleSecondary", "#secondarySchoolingPlot","sec"); }
+          function MinusSecondaryPlot(){MinusPlot(currSecondary, ".subtitleSecondary", "#secondarySchoolingPlot","sec");}
+
+          function PlusTertiaryPlot(){  PlusPlot(currTertiary, ".subtitleTertiary","#tertiarySchoolingPlot", "ter");  }
+          function MinusTertiaryPlot(){ MinusPlot(currTertiary, ".subtitleTertiary","#tertiarySchoolingPlot", "ter"); }
+
+
+          function CallToUpdate(baseUrl, dataObject, prefix, plotIdentifier, prefixMovement, subtitleIdentifier, keepIdx=false){
+		 baseUrl += "&lang=" + lang;
+                 d3.json(baseUrl).then(function(data) {
+                       dataObject.data = data;
+                       if(!keepIdx) dataObject.idx = 0;
+                       d3.selectAll(subtitleIdentifier).text(dataObject.data[dataObject.idx].subtitle);
+                       if ( data.length > 1){
+                            d3.selectAll("#" +prefixMovement + "Next").style("display","inline");
+                            d3.selectAll("#" +prefixMovement + "Prev").style("display","inline");
+                       }
+                       else {
+                            d3.selectAll("#" + prefixMovement + "Next").style("display","none");
+                            d3.selectAll("#" + prefixMovement + "Prev").style("display","none");
+                       }
+                      let cur_data = dataObject.data[dataObject.idx].items;
+                      updatePlot(plotIdentifier, cur_data, prefix, dataObject.data[dataObject.idx].title);
+                  });
+          }
+
+          function updateGenPlot(elem){         
+                   var curPlot = d3.select(this).attr("value");
+                   currGen.value = curPlot;
+                   var baseUrl = "{% url 'getGeneralAccessPlot'%}?name="+ curPlot;            
+                   var txtInElement = d3.select(this).node().text;
+                   d3.select("#dropdownGenDrop").text(txtInElement); 
+                   CallToUpdate(baseUrl, currGen, "gen", "#genAccessPlot","gen",".subtitleGen");
+          }
+          
+          function emptyUpdateGen(){
+                   var baseUrl = "{% url 'getGeneralAccessPlot'%}?name="+ currGen.value;
+		   var possibleElements = d3.selectAll(".dropdownGen"+"."+lang); 
+		   possibleElements.each( function(d){
+                           var selectedNow = d3.select(this).attr("value");
+			   if ( selectedNow == currGen.value){
+                   		var txtInElement = d3.select(this).node().text;
+                   		d3.select("#dropdownGenDrop").text(txtInElement);
+			   }
+		    });
+                   CallToUpdate(baseUrl, currGen, "gen", "#genAccessPlot","gen",".subtitleGen",true);
+	  }
+          
+          function updatePrimaryPlot(elem){         
+                   var curPlot = d3.select(this).attr("value");
+	           currPrimary.value = curPlot;
+                   var baseUrl = "{% url 'getPrimarySchoolingPlot'%}?name="+ curPlot;            
+                   var txtInElement = d3.select(this).node().text;
+                   d3.select("#dropdownPrimaryDrop").text(txtInElement);
+                   CallToUpdate(baseUrl, currPrimary, "pri","#primarySchoolingPlot","primary", ".subtitlePrimary");
+          }
+
+          function emptyUpdatePrimary(){
+                   var baseUrl = "{% url 'getPrimarySchoolingPlot'%}?name="+ currPrimary.value;
+		   var possibleElements = d3.selectAll(".dropdownPrimary"+"."+lang); 
+		   possibleElements.each( function(d){
+                           var selectedNow = d3.select(this).attr("value");
+			   if ( selectedNow == currPrimary.value){
+                   		var txtInElement = d3.select(this).node().text;
+                   		d3.select("#dropdownPrimaryDrop").text(txtInElement);
+			   }
+		    });
+  		   CallToUpdate(baseUrl, currPrimary, "pri","#primarySchoolingPlot","primary", ".subtitlePrimary", true);
+	  }
+
+         function updateMapTitles(){
+		 var possibleName = d3.selectAll(".dropdownMap"+"."+lang); 
+		 possibleName.each( function(d){
+                           var selectedNow = d3.select(this).attr("value");
+			  if ( selectedNow == mapIndicator){
+                   		var txtInElement = d3.select(this).node().text;
+                   		d3.select("#dropdownMapIndicator").text(txtInElement);
+			   }
+		 });
+
+                 var possibleAnswer = d3.selectAll(".dropdownOpt"+"."+lang);
+		 possibleAnswer.each( function(d){
+                           var selectedNow = d3.select(this).attr("value");
+			    if ( selectedNow == mapAnswer){
+                   		var txtInElement = d3.select(this).node().text;
+                   		d3.select("#dropdownOptions").text(txtInElement);
+			   }
+		 });
+
+		if (per1000){
+		  if (lang == "sp") d3.select("#dropdownVisual").text("cada 1,000");
+		  if (lang == "en") d3.select("#dropdownVisual").text("per 1,000");
+		}
+		else {
+		  if (lang == "sp") d3.select("#dropdownVisual").text("Numero de Casos");
+		  if (lang == "en") d3.select("#dropdownVisual").text("Number Cases");
+
+		}
+
+	 }
+         function emptyUpdateSecondary(){
+                   var baseUrl = "{% url 'getSecondarySchoolingPlot'%}?name="+ currSecondary.value;
+		   var possibleElements = d3.selectAll(".dropdownSecondary"+"."+lang); 
+		   possibleElements.each( function(d){
+                           var selectedNow = d3.select(this).attr("value");
+			   if ( selectedNow == currSecondary.value){
+                   		var txtInElement = d3.select(this).node().text;
+                   		d3.select("#dropdownSecondaryDrop").text(txtInElement);
+			   }
+		    });
+                   CallToUpdate(baseUrl, currSecondary, "sec","#secundarySchoolingPlot","secondary", ".subtitleSecondary", true);
+	  }
+          
+         
+          function emptyUpdateTertiary(){
+                   var baseUrl = "{% url 'getTertiarySchoolingPlot'%}?name="+ currTertiary.value;            
+	
+		   var possibleElements = d3.selectAll(".dropdownTertiary"+"."+lang); 
+		   possibleElements.each( function(d){
+                           var selectedNow = d3.select(this).attr("value");
+			   if ( selectedNow == currTertiary.value){
+                   		var txtInElement = d3.select(this).node().text;
+                   		d3.select("#dropdownTertiaryDrop").text(txtInElement);
+			   }
+		    });
+                   CallToUpdate(baseUrl, currTertiary, "ter","#tertiarySchoolingPlot","tertiary", ".subtitleTertiary", true);
+	  }
+                 
+          function updateSecondaryPlot(elem){         
+                   var curPlot = d3.select(this).attr("value");
+	           currSecondary.value = curPlot;
+                   var baseUrl = "{% url 'getSecondarySchoolingPlot'%}?name="+ curPlot;            
+	           var txtInElement = d3.select(this).node().text;
+                   d3.select("#dropdownSecondaryDrop").text(txtInElement);
+                   CallToUpdate(baseUrl, currSecondary, "sec","#secundarySchoolingPlot","secondary", ".subtitleSecondary");
+           }
+          
+          
+           function updateTertiaryPlot(elem){         
+                   var curPlot = d3.select(this).attr("value");
+	           currTertiary.value = curPlot;
+                   var baseUrl = "{% url 'getTertiarySchoolingPlot'%}?name="+ curPlot;            
+			       var txtInElement = d3.select(this).node().text;
+                   d3.select("#dropdownTertiaryDrop").text(txtInElement); 
+                   CallToUpdate(baseUrl, currTertiary, "ter","#tertiarySchoolingPlot","tertiary", ".subtitleTertiary");
+           }
+          
+            function updateTitlesLang(){
+         		updateMapTitles();
+		        getProgressIndicator(currProgressIndicator);
+		       
+                        emptyUpdateGen();
+	      	        emptyUpdatePrimary(); 
+	      	        emptyUpdateSecondary(); 
+	      	        emptyUpdateTertiary(); 
+			
+              }
+
+	    function changeLanguage(){
+			if ( lang == "en"){
+				lang = "sp";
+	                        d3.selectAll(".sp").style("display","inline-block");
+	                        d3.selectAll(".en").style("display","none");
+			     
+			}
+			else if ( lang == "sp"){ 
+				lang = "en";
+	                        d3.selectAll(".sp").style("display","none");
+	                        d3.selectAll(".en").style("display","inline-block");
+			}
+           		updateTitlesLang();
+	    }
+      
+
+          function initProgressPlot(){
+                 fullProgressData = [ {%for elem in progress_val %} {'region': "{{elem.region}}",'type':"{{elem.type}}",'year':{{elem.year}},'n':{{elem.n}} }, {% endfor %}]; 
+                  let progress_data = [];
+                  for(var i = 0;i < fullProgressData.length; i++){
+                      if( fullProgressData[i].type == "C"){
+                          progress_data.push(fullProgressData[i]);
+                      }
+                  }     
+
+              // set the dimensions and margins of the graph
+			var margin = {top: 20, right: 120, bottom: 50, left: 60},
+			    width =  widthProgress - margin.left - margin.right,
+			    height = 315 - margin.top - margin.bottom;
+                 
+			  // define the plot size
+               d3.select("#comparisonPlot").attr("width",width+ margin.left + margin.right).attr("height", height+ margin.top+ margin.bottom  );
+
+			   var svg = d3.select("#comparisonPlot").append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")").attr("id","innerProgressPlot");
+
+
+              var sumstat = d3.nest() // nest function allows to group the calculation per level of a factor
+    				.key(function(d) { return d.region;})
+   				.entries(progress_data);
+
+			     
+			       // Add X axis --> it is a date format
+			  var x = d3.scaleLinear()
+			    .domain(d3.extent(progress_data, function(d) { return  d.year /*new Date(d.year,00,01);*/ }))
+			    .range([ 0, width ]);
+			  
+              var xYear = d3.scaleLinear()
+			    .domain(d3.extent(progress_data, function(d) { return  new Date(d.year,00,01); }))
+			    .range([ 0, width ]);
+
+
+			  svg.append("g")
+			    .attr("transform", "translate(0," + height + ")")
+                 .attr("id","prXaxis")
+                .call(d3.axisBottom(xYear).ticks(5).tickFormat(d3.timeFormat("%Y")));
+
+			  // Add Y axis
+			  var y = d3.scaleLinear()
+			    .domain([0, d3.max(progress_data, function(d) { return +d.n; })])
+			    .range([ height, 0 ]);
+			  
+              svg.append("g")
+                .attr("id","prYaxis")
+			    .call(d3.axisLeft(y).ticks(5));
+
+
+			  // color palette
+			  var res = sumstat.map(function(d){ return d.key }) // list of group names
+
+		       var color = d3.scaleOrdinal()
+			    .domain(res)
+			    .range(color_countries);
+
+			  svg.selectAll(".line")
+			      .data(sumstat)
+			      .enter()
+			      .append("path")
+                  .attr("class","line")
+				.attr("fill", "none")
+				.attr("stroke", function(d){ return color(d.key) })
+                .attr("stroke-width", function(d){ if (d.key.trim() == "Honduras") return 3; else 1.5; })
+				.attr("d", function(d){
+				  return d3.line()
+				    .x(function(d) { return x(d.year); })
+				    .y(function(d) { return y(+d.n); })
+				    (d.values)
+				});
+
+	                  //Create the legend
+               svg = d3.select("#comparisonPlot");
+			   var yStep = 20;
+			   for(var i =0; i  < res.length; i++){
+			       svg.append("circle").attr("cx",margin.left + width+10).attr("cy", 40 + yStep*i - 5).attr("r", 4).style("fill", color(res[i]) );
+			        svg.append("text").attr("x", margin.left  + width +20).attr("y", 40 + yStep*i).text(res[i] ).style("font-size", "12px").attr("alignment-baseline","middle")
+			  }
+                         
+
+                // Add X axis label:
+			  var yearTxt = "Year";
+			   if (lang == "sp") yearTxt = "Año";
+		svg.append("text").attr("text-anchor", "end").attr("x", (width + margin.left + margin.right)/2).attr("y", height + margin.top + 40)
+				   .attr("id", "prLabelx") .text(yearTxt);
+
+               // Y axis label:
+               svg.append("text").attr("text-anchor", "end").attr("transform", "rotate(-90)")
+    			   .attr("y",  margin.left - 40).attr("id", "prLabelY").attr("x", -margin.top ).text( currentProgressName);
+
+		     }
+
+
+             function clickOnOpt(){
+	         var currentElement = d3.select(this);
+		 var txtInElement = currentElement.node().text;
+
+                 d3.select("#dropdownOptions").text(txtInElement);
+                 mapAnswer = currentElement.attr("value");
+	         updateMapInfo(false);
+                 updateLayers();
+             }
+	 
+		     function getColor(d){
+		       	 var scaled = Math.round(((d*1.0)/upperLimit)*(16*16));
+				 var hexString = scaled.toString(16);
+                 var toRepeat = 2;
+
+				 if( hexString.length == 1)
+				    hexString = "0" + hexString;
+                 if ( hexString.length == 3)
+                    hexString = "ff";
+			        
+				 var repeated =  "#ff"+ hexString.repeat(toRepeat);
+			         return repeated;
+         	    }
+
+                      function updateTicks(){
+
+		            var step = Math.round( upperLimit/50), 
+			           t = 0,
+			       ticks = 0;
+			  
+		          for (var i = upperLimit; i > 0 ; i -= step) {
+				if (t == 10  ){
+				    d3.select("#tick"+ ticks).text(i);
+				    t = 0;
+				    ticks++;
+				}
+				t += 1;
+			    }
+		      }
+
+		      function getColorMap(map) {
+
+			    var div = L.DomUtil.create('div', 'info legend'),
+		                step = Math.round( upperLimit/50), 
+			        t = 0,
+			        ticks = 0;
+
+			    var  totalSteps = upperLimit/step;
+			      for (var i = upperLimit; i > 0 ; i -= step) {
+				div.innerHTML += '<i style="background:' + getColor(i) + '"></i>';
+                                if (t == 10  ){
+				    div.innerHTML += '<a id="tick' + ticks + '">'+  i + "</a>";
+				    t = 0;
+				    ticks++;
+				}
+				div.innerHTML += '<br>';
+				t += 1;
+			    }
+			    return div;
+			}
+
+           function updateLayers(){
+			     if( map !== null){  
+                    map.removeLayer(geojson); 
+                    geojson = L.geoJSON(administrativeMapLvl1, {style: style}).addTo(map); 
+                 }
+           }
+
+           function updateOptions(data){
+
+                  d3.select("#dropdownOptions").text( data['current_answer']);
+			      var new_options = data['new_options'];
+                  var total_options = data['total_options'];
+                  d3.select("#currentOptions").html("");
+                  var innerHTML = "";
+                  for(var i =0; i < total_options; i++){
+                       var curr_opt = new_options[i];
+                       innerHTML += '<a class="dropdown-item dropdownOpt en" id="en' +curr_opt.index+ '_ans" value="'+ curr_opt.answer +'">' +curr_opt.eng_answer + '</a>';
+                       innerHTML += '<a class="dropdown-item dropdownOpt sp" id="sp' +curr_opt.index+ '_ans" value="'+ curr_opt.answer +'">' +curr_opt.answer + '</a>';
+                  }
+
+                  d3.select("#currentOptions").html(innerHTML);
+                  d3.selectAll(".dropdownOpt").on("click", clickOnOpt);
+	             
+		  if (lang == "en") d3.selectAll(".sp").style("display","none");
+		  if (lang == "sp") d3.selectAll(".en").style("display","none");
+
+           }
+             
+           function updateMapInfo(includeOption){
+                 var baseUrl = "{% url 'getMapIndicator'%}?mapIndicator="+mapIndicator +"&answer="+mapAnswer + "&lang="+lang; 
+                 d3.json(baseUrl).then(function(data) {
+		          mapData = data;
+                          if (includeOption) updateOptions(data); 
+                          updateAdministrativeMapWithData();
+                          updateLayers();
+			  
+	                    });
+		     }
+
+             function getProgressIndicator(indicator){
+                 var baseUrl = "{% url 'getProgressIndicator'%}?Indicator="+indicator + "&lang="+lang; 
+                 d3.json(baseUrl).then(function(data) {
+                        currentProgressName = data["progress_index_name"];    
+                        fullProgressData = data["progress_val"];
+                        updateProgressPlot();
+                 });
+             }
+
+                     function style(feature) {
+				    return {
+					fillColor: getColor(feature.properties.color_val),
+					weight: 2,
+					opacity: 1,
+					color: 'white',
+					dashArray: '3',
+					fillOpacity: 0.7
+		
+ 		    };
+		     }
+
+
+
+	        function updateAdministrativeMapWithData(){
+
+                   let index = 0;
+                       maxVal = 0;
+                   for ( ; index <  administrativeMapLvl1['features'].length; index++){
+                        var currentFeature  = administrativeMapLvl1['features'][index];
+                        var nameDpt         = currentFeature.properties['ADM1_REF'];
+                        var nameDptAsKey    = nameDpt.toUpperCase();
+                        var currentDataDict = mapData[nameDptAsKey];
+                
+                        if(per1000)
+                            currentFeature.properties['color_val'] = currentDataDict['per1000']
+                        else
+                            currentFeature.properties['color_val'] = currentDataDict['total_answer']
+
+                       if( currentFeature.properties['color_val'] > maxVal){
+                            maxVal = currentFeature.properties['color_val']; 
+                       }
+                   }
+
+                   if( !per1000) upperLimit = maxVal;
+                       updateTicks();
+		     }
+
+
+		     $(document).ready(function() {
+	                   d3.selectAll(".sp").style("display","none");
+        	           d3.selectAll(".subtitle").style("display","none");
+			   /*Created automatically*/
+			   {% for key, values in map_data.items %}
+			     mapData["{{key}}"] ={  {% for k, v in values.items %} "{{k}}": {{v}} ,  {% endfor %} };	
+			   {% endfor %}
+                           /**/
+
+		  	   let isMobile = window.matchMedia("only screen and (max-width: 760px)").matches;
+ 			   map = L.map('map').setView([14.08,-86.25],6);
+      			   isMobile = window.matchMedia("only screen and (max-width: 760px)").matches;
+			   if (isMobile ) widthProgress = 760/2;
+
+
+			     /*L.tileLayer(
+				  "https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw",
+				  {
+				    maxZoom: 18,
+				    attribution:
+				      'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
+				      '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+				      'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+				    id: "mapbox.light"
+				  }
+			    ).addTo(map);*/
+
+  			  d3.json("{% url 'geojson'%}").then(function(data) {
+				administrativeMapLvl1 = data;
+                                updateAdministrativeMapWithData();
+			    	geojson = L.geoJSON(administrativeMapLvl1, {style: style}).addTo(map); 
+			  });
+                          
+			  var legend = L.control({position: 'bottomright'});
+			  legend.onAdd = getColorMap; 
+			  legend.addTo(map);
+                          initProgressPlot();
+
+            d3.selectAll(".dropdownMap").on("click", function(){
+			     var currentElement = d3.select("#" + this.id);
+			     var txtInElement = currentElement.node().text;
+                 d3.select("#dropdownMapIndicator").text(txtInElement);
+		           mapIndicator = currentElement.attr("value");
+                          updateMapInfo(true);
+                         updateLayers();
+		});
+		          
+			  d3.selectAll(".dropdownOpt").on("click", clickOnOpt);
+
+
+               d3.selectAll(".dropdownProgress").on("click", function(){
+			     var currentElement = d3.select("#" + this.id);
+			     var txtInElement = currentElement.node().text;
+                             d3.select("#dropdownProgressDrop").text(txtInElement);
+		             var indicator = currentElement.attr("value");
+		             currProgressIndicator = indicator;
+		             getProgressIndicator(indicator);
+                });
+
+			  d3.selectAll(".dropdownVis").on("click", function(){
+			     var currentElement = d3.select("#" + this.id);
+			     var txtInElement = currentElement.node().text;
+                 d3.select("#dropdownVisual").text(txtInElement);
+			     if ( currentElement.attr("value") == "per1000")
+		          {	  per1000 = true;
+				  upperLimit = 1000.0;
+			     }
+			     else {  upperLimit = 100.0; 
+				     per1000 = false;
+			     }
+			     updateAdministrativeMapWithData();
+                 updateLayers();
+
+			  });
+                  
+
+               d3.select("#progressPrev").on("click", function(d){ indexProgress-=1; if(indexProgress<0) indexProgress = 3;  updateProgressPlot(); });
+               d3.select("#progressNext").on("click", function(d){ indexProgress=(indexProgress+1)%4; updateProgressPlot();   });
+               
+
+               initLinearPlots();
+               
+               d3.selectAll(".dropdownGen").on("click", updateGenPlot ); 		
+               d3.select("#genNext").on("click",PlusGenPlot);
+               d3.select("#genPrev").on("click",MinusGenPlot);
+
+               d3.selectAll(".dropdownPrimary").on("click", updatePrimaryPlot ); 		
+               d3.select("#primaryNext").on("click",PlusPrimaryPlot);
+               d3.select("#primaryPrev").on("click",MinusPrimaryPlot);
+               
+               d3.selectAll(".dropdownSecondary").on("click", updateSecondaryPlot ); 		
+               d3.select("#secondaryNext").on("click",PlusSecondaryPlot);
+               d3.select("#secondaryPrev").on("click",MinusSecondaryPlot);
+                              
+               d3.selectAll(".dropdownTertiary").on("click", updateTertiaryPlot ); 		
+               d3.select("#tertiaryNext").on("click",PlusTertiaryPlot);
+               d3.select("#tertiaryPrev").on("click",MinusTertiaryPlot);
+
+               d3.select("#tmpLang").on("click",changeLanguage);
+                                  
+        });
+		</script>
+{%endblock%}
+
+;
+
+{%block content %}
+
+    <div class="container">
+    <!--Article 25 of the HRC in english and spanish -->
+   <div class="row justify-content-center">
+		
+            <div class="col-auto">
+			<h3 class="en">Honduran Access to Education Dashboard</h3>
+			<h3 class="sp">Dashboard Hondureño del Acceso a la Educación</h3>
+
+		 	<div class="en description">
+				<h6> ARTICLE 171 - Honduran Constitution </h6>
+				<p>  The State provided education will be free. Basic education will be compulsory and fully paid for by the State. The State shall establish the mechanisms to make this provision effective. </p>
+
+
+				<h6> ARTICLE 26.1 - Universal Declaration of Human Rights </h6>
+				<p> Everyone has the right to education. Education shall be free, at least in the elementary and fundamental stages. Elementary education shall be compulsory. Technical and professional education shall be made generally available and higher education shall be equally accessible to all on the basis of merit. </p>
+
+			</div>
+			<div class="sp description">
+				<h6> ARTICULO 171 - Constitución de Honduras </h6>
+				<p> La educación impartida oficialmente será gratuita y la básica será además, obligatoria y totalmente costeada por el Estado. El Estado establecerá los mecanismos de compulsión para hacer efectiva esta disposición. </p>
+
+				<h6> ARTICULO 26.1 - Declaración Universal de los Derechos Humanos </h6>
+				<p> Toda persona tiene derecho a la educación. La educación debe ser gratuita, al menos en lo concerniente a la instrucción elemental y fundamental. La instrucción elemental será obligatoria. La instrucción técnica y profesional habrá de ser generalizada; el acceso a los estudios superiores será igual para todos, en función de los méritos respectivos. </p>
+			</div>
+		</div>
+    </div>
+    <!--Main plot for comparison -->
+   <div class="row justify-content-center">
+   
+         <!-- Start of Map Area -->
+
+         <div class="col-sm-6">
+		 	<div class="en description">
+                <h6>Data </h6>
+
+                <p> All Data shown here is publicly available. The census data was extracted on December 2020 from the <a href="https://www.ine.gob.hn/">Honduran National Institute for Statistics (INE) </a>.
+                    The majority of indicators were extracted from <a href="https://data.humdata.org/"> The Humanitarian Data Exchange  </a> on December 2020 where a large part was based on the estimates computed by <a href="http://www.barrolee.com/"> Robert Barro and Jong-Wha Lee. </a>  </p>
+                    <p> Barro, Robert and Jong-Wha Lee, 2013, “A New Data Set of Educational Attainment in the World, 1950-2010.” Journal of Development Economics, vol 104, pp.184-198. </p>
+
+                    <p> Indicators on Education Index and Human Development Index (HDI) were extracted from the <a href="http://hdr.undp.org/en/data">Human Development Data Center</a></p>
+    
+                    <p> The current dashboard is written as a Django Application whose code is freely available at  <a href="https://github.com/jmatute/HondurasEducationDashboard">GitHub</a> 
+                    For more projects, you are welcome to explore the <a href="https://www.jmatute.de/sitemap/">Sitemap</a> or my Blog  <a href="https://www.jmatute.de/blog/archive/">Archives</a></p>
+
+
+            </div>
+		 	<div class="sp description">
+                <h6>Data </h6>
+                
+                <p>
+                Todos los datos que se muestran aquí están a disposición del público. Los datos del censo fueron extraídos en diciembre de 2020 del <a href="https://www.ine.gob.hn/">Instituto Nacional de Estadística Hondureño (INE).</a> La mayoría de los indicadores se extrajeron del <a href="https://data.humdata.org"> Sistema de Intercambio de Datos Humanitarios ("The Humanitarian Data Exchange") </a> en diciembre de 2020, donde una gran parte fueron gracias al trabajo de Robert Barro y Jong-Wha Lee. </p>
+                
+                <p> Barro, Robert y Jong-Wha Lee, 2013, "A New Data Set of Educational Attainment in the World, 1950-2010". Journal of Development Economics, vol. 104, págs. 184 a 198. </p>
+
+                <p> Los indicadores sobre el índice de educación y el índice de desarrollo humano (IDH) se extrajeron del <a href="http://hdr.undp.org/en/data"> Centro de Datos sobre Desarrollo Humano.</a> </p>
+
+                 <p>El tablero actual está escrito como una aplicación Django cuyo código está disponible gratuitamente en <a href="https://github.com/jmatute/HondurasEducatinDashboard"> GitHub</a>. Para más proyectos, puedes explorar el <a href="https://www.jmatute.de/sitemap/"> mapa del sitio</a> o <a href="https:://www.jmatute.de/blog/archive/"> los archivos de mi blog.</a>
+                </p>
+       	      
+            </div>
+		 <button type="button" class="btn btn-sm btn-primary" id="tmpLang"> 
+                        <a class="en"> Español </a>
+                        <a class="sp"> English </a>
+		 </button>
+
+
+         </div>
+
+
+         <div class="col-sm-6">
+            <div class="row justify-content-center">
+                <div class="col-auto">
+                    <h6 class="en">National Census 2013 </h6>
+                    <h6 class="sp">Censo Nacional 2013 </h6>
+                
+                </div>
+            </div>
+             <div id="map">
+            
+             </div>
+		 
+		 
+             <!--Map Options -->
+
+             <div class="dropdown show">
+                  <a class="btn-sm btn-secondary dropdown-toggle" role="button" id="dropdownMapIndicator" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                      School Attendance
+                  </a>
+                  <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+                     {%for indicator in indicators %}
+                     <a class="dropdown-item dropdownMap sp" id="ind{{indicator.pk}}_sp" value="{{indicator.pk}}" >{{ indicator.sp_name }}</a>	
+                     <a class="dropdown-item dropdownMap en" id="ind{{indicator.pk}}_en" value="{{indicator.pk}}">{{ indicator.en_name }}</a>
+                     {%endfor %}
+                  </div>
+            </div>
+		
+             <div class="dropdown show">
+                  <a class="btn-sm btn-secondary dropdown-toggle" role="button" id="dropdownOptions" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                     Yes
+                  </a>
+                  <div class="dropdown-menu" id="currentOptions" aria-labelledby="dropdownMenuLink">
+                       {% for option in options %}
+                             <a class="dropdown-item dropdownOpt en" id="en{{option.index}}_ans" value="{{option.answer}}" > {{option.eng_answer}}</a>
+                             <a class="dropdown-item dropdownOpt sp" id="sp{{option.index}}_ans" value="{{option.answer}}" > {{option.answer}}</a>
+                       {% endfor %}
+                  </div>
+            </div>
+
+
+             <div class="dropdown show">
+                  <a class="btn-sm btn-secondary dropdown-toggle"  role="button" id="dropdownVisual" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                       per 1,000 
+                  </a>
+                  <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+                     <a class="dropdown-item dropdownVis sp" id="per1000sp" value="per1000" >cada 1,000 </a>
+                     <a class="dropdown-item dropdownVis en" id="per1000en" value="per1000" >per  1,000</a>
+                     <a class="dropdown-item dropdownVis sp" id="percentualSp" value="totalCases" >Numero de Casos</a>
+                     <a class="dropdown-item dropdownVis en" id="percentualEn" value="totalCases" >Number Cases</a>
+
+                  </div>
+            </div>
+
+             <!--End Map Options -->
+	    </div> 
+        <!-- End of Map Area -->
+
+
+
+   </div>
+
+
+
+   <!--Plots and make that creates proper dashboard-->
+   
+	 
+   <div class="row justify-content-center">
+	    <div class="col-sm-8">
+            <div class="row justify-content-center">
+              <div class="col-auto">
+                      <a class="arrow" id="progressPrev" role="button"> &#8656; </a>
+                      <a class="btn-sm btn-secondary dropdown-toggle modOptionPlot" role="button" id="dropdownProgressDrop" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                          {{progress_index_name}} 
+                      </a>
+                      <a class="arrow" id="progressNext" role="button"> &#8658; </a>
+                      <div>
+                               <a class="en subtitle vsLatin">vs Average in Latin America and the Caribbean </a>
+                               <a class="sp subtitle vsLatin">vs Promedio en América Latina y el Caribe </a>
+                               <a class="en subtitle vsWorld">vs World Average </a>
+                               <a class="sp subtitle vsWorld">vs Promedio Mundial </a>
+                               <a class="en subtitle vsMedDevelopment">vs Medium Human Development </a>
+                               <a class="sp subtitle vsMedDevelopment">vs Desarrollo Medio </a>
+                      </div>
+                  <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+                      {%for indicator in progress_indicators %}
+			            <a class="dropdown-item dropdownProgress sp" id="Prind{{indicator.pk}}_sp" value="{{indicator.pk}}" >{{ indicator.sp_name }}</a>	
+			            <a class="dropdown-item dropdownProgress en" id="Prind{{indicator.pk}}_en" value="{{indicator.pk}}">{{ indicator.en_name }}</a>
+                      {%endfor%}
+                  </div>
+              </div>
+         </div>
+		 <svg class="plot"  id="comparisonPlot" >
+
+		 </svg>
+
+
+	</div>
+
+   </div>
+
+
+   <div class="row justify-content-center">
+
+        <!--Start General Col -->
+        <div class="col-sm-4">   
+            <div class="row justify-content-center">
+                <div class="col-auto">
+                    <h6 class="en">Access </h6>
+                    <h6 class="sp">Acceso </h6>
+                
+                </div>
+            </div>
+         
+            <div class="row justify-content-center">
+                <div class="col-auto">
+
+                   <div class="dropdown show"> <!-- dropdown options general access-->
+                
+                      <a class="arrow" id="genPrev" role="button"> &#8656; </a>
+                      <a class="btn-sm btn-secondary dropdown-toggle modOptionPlot" role="button" id="dropdownGenDrop" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            Literacy Rate
+                      </a>
+                      <a class="arrow" id="genNext" role="button"> &#8658; </a>
+                      <div class="subArea">
+                               <a class="en subtitleGen"> </a>
+                               <a class="sp subtitleGen">  </a>
+                      </div>
+                      <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+                      {%for elem in genAccess %}
+			                <a class="dropdown-item dropdownGen sp" id="Gen_{{elem.pk}}_sp" value="{{elem.name}}" >{{ elem.sp_name }}</a>	
+			                <a class="dropdown-item dropdownGen en" id="Gen_{{elem.pk}}_en" value="{{elem.name}}" >{{ elem.en_name }}</a>	
+
+                      {%endfor%}
+                      </div>
+
+                </div><!--end dropdown for general access-->
+              </div>
+         </div>
+
+            <svg class="plot"  id="genAccessPlot" >
+
+             </svg>
+
+
+
+        </div>
+
+	<!-- End General Col -->
+
+         <div class="col-sm-4">
+
+            <div class="row justify-content-center">
+                <div class="col-auto">
+                    <h6 class="en">Primary Schooling </h6>
+                    <h6 class="sp">Escuela Primaria </h6> 
+                </div>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-auto">
+
+                   <div class="dropdown show"> <!-- dropdown options primary schooling -->
+                
+                      <a class="arrow" id="primaryPrev" role="button"> &#8656; </a>
+                      <a class="btn-sm btn-secondary dropdown-toggle " role="button" id="dropdownPrimaryDrop" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            Completed Primary
+                      </a>
+                      <a class="arrow" id="primaryNext" role="button"> &#8658; </a>
+                      <div class="subArea">
+                               <a class="en subtitlePrimary"> </a>
+                               <a class="sp subtitlePrimary">  </a>
+                      </div>
+                      <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+                      {%for elem in primarySchooling %}
+			                <a class="dropdown-item dropdownPrimary sp" id="Prim_{{elem.pk}}_sp" value="{{elem.name}}" >{{ elem.sp_name }}</a>	
+			                <a class="dropdown-item dropdownPrimary en" id="Prim_{{elem.pk}}_en" value="{{elem.name}}" >{{ elem.en_name }}</a>	
+
+                      {%endfor%}
+                      </div>
+
+                </div><!--end dropdown for primary schooling-->
+              </div>
+         </div>
+
+
+            <svg class="plot"  id="primarySchoolingPlot" >
+
+             </svg>
+
+         </div>
+    </div>
+   
+   <!--- End Area- Start of Primary,Secondary, Tertiary  -->
+   <div class="row justify-content-center">
+
+
+
+        <div class="col-sm-4">
+            <div class="row justify-content-center">
+                <div class="col-auto">
+                    <h6 class="en">Secondary Schooling </h6>
+                    <h6 class="sp">Escuela Secundaria </h6> 
+                </div>
+            </div>
+            
+            <!--- Start Plot-->
+            
+             <div class="row justify-content-center">
+                <div class="col-auto">
+
+                   <div class="dropdown show"> <!-- dropdown options secondary schooling -->
+                
+                      <a class="arrow" id="secondaryPrev" role="button"> &#8656; </a>
+                      <a class="btn-sm btn-secondary dropdown-toggle " role="button" id="dropdownSecondaryDrop" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            Completed Secondary
+                      </a>
+                      <a class="arrow" id="secondaryNext" role="button"> &#8658; </a>
+                      <div class="subArea">
+                               <a class="en subtitleSecondary"> </a>
+                               <a class="sp subtitleSecondary">  </a>
+                      </div>
+                      <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+                      {%for elem in secondarySchooling %}
+			                <a class="dropdown-item dropdownSecondary sp" id="Sec_{{elem.pk}}_sp" value="{{elem.name}}" >{{ elem.sp_name }}</a>	
+			                <a class="dropdown-item dropdownSecondary en" id="Sec_{{elem.pk}}_en" value="{{elem.name}}" >{{ elem.en_name }}</a>	
+
+                      {%endfor%}
+                      </div>
+
+                </div><!--end dropdown for secondary schooling-->
+              </div>
+         </div>
+
+
+            <svg class="plot"  id="secondarySchoolingPlot" >
+
+             </svg>
+            
+            <!--- End Plot-->
+
+        </div>
+        <div class="col-sm-4">
+            <div class="row justify-content-center">
+                <div class="col-auto">
+                    <h6 class="en">Tertiary Schooling </h6>
+                    <h6 class="sp">Escuela Terciaria </h6> 
+                </div>
+            </div>
+            
+            
+               <!--- Start Plot-->
+            
+             <div class="row justify-content-center">
+                <div class="col-auto">
+
+                   <div class="dropdown show"> <!-- dropdown options tertiary schooling -->
+                
+                      <a class="arrow" id="tertiaryPrev" role="button"> &#8656; </a>
+                      <a class="btn-sm btn-secondary dropdown-toggle " role="button" id="dropdownTertiaryDrop" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            Completed Tertiary
+                      </a>
+                      <a class="arrow" id="tertiaryNext" role="button"> &#8658; </a>
+                      <div class="subArea">
+                               <a class="en subtitleTertiary"> </a>
+                               <a class="sp subtitleTertiary">  </a>
+                      </div>
+                      <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+                      {%for elem in tertiarySchooling %}
+			                <a class="dropdown-item dropdownTertiary sp" id="Sec_{{elem.pk}}_sp" value="{{elem.name}}" >{{ elem.sp_name }}</a>	
+			                <a class="dropdown-item dropdownTertiary en" id="Sec_{{elem.pk}}_en" value="{{elem.name}}" >{{ elem.en_name }}</a>	
+
+                      {%endfor%}
+                      </div>
+
+                </div><!--end dropdown for tertiary schooling-->
+              </div>
+            </div>
+            <svg class="plot"  id="tertiarySchoolingPlot" >
+
+             </svg>
+            
+            <!--- End Plot-->
+            </div>
+        </div> 
+        <!--End row-->
+
+   </div>
+{%endblock%}
