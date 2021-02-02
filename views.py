@@ -179,3 +179,26 @@ def getTertiarySchoolingData(request):
 
     return HttpResponse(json.dumps(response_data),content_type="application/json")
 
+
+def getIndicators(request):
+    context = {}
+    all_indicators = []
+    
+    access        =  AccessIndicatorsNames()
+    mapIndicators =  getMapIndicators()
+    progress      =  getProgressIndicators()
+   
+   
+    all_indicators.extend(access)
+    all_indicators.extend(mapIndicators)
+    all_indicators.extend(progress)
+
+    all_indicators.extend(PrimarySchoolingIndicatorsNames())
+    all_indicators.extend(SecondarySchoolingIndicatorsNames())
+    all_indicators.extend(TertiarySchoolingIndicatorsNames())
+
+    all_indicators.sort()
+
+    context["indicators"] = enumerate(Indicator.objects.filter(name__in=all_indicators))
+    data_dict = {"context":context}
+    return render(request,'dashboard/indicators.html', data_dict)

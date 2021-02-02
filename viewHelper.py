@@ -84,6 +84,13 @@ def getProgressIndicatorInfo(name_indicator):
     return progress_data
 
 
+def getMapIndicators():
+    indicatorsNames = [ e[0] for e in BooleanMapIndicator.objects.values_list("indicator__name").distinct()]
+    return indicatorsNames
+
+def getProgressIndicators():
+    indicatorsNames = [ e[0] for e in ProgressIndicator.objects.values_list("indicator__name").distinct()]
+    return indicatorsNames
 
 #### Plot Definitions  #####
 #

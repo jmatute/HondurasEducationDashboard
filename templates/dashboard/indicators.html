@@ -1,0 +1,44 @@
+{% extends "dashboard/base.html" %}
+
+{% load static %}
+
+{%block localStatic %}
+
+{%endblock%}
+
+
+{%block content %}
+
+	<div class="container">
+	    {% for key, values in context.items %}
+       
+	    	<div class="row d-flex justify-content-center">
+			
+ 	            <div class="col-sm-12">
+			<table class="table tablesorter">
+			  <thead>
+			  <tr>
+			      <th scope="col">#</th>
+			      <th scope="col">ID</th>
+			      <th scope="col">English Description</th>
+			      <th scope="col">Spanish Description</th>
+
+			  </tr>
+			   </thead>
+			   <tbody>
+	    	{% for index, indicator in values %}
+		       <tr>
+			       <td>{{index}}</td>
+			       <td>{{indicator.name}}</td>
+			       <td>{{indicator.en_description}}</td>
+			       <td>{{indicator.sp_description}}</td>
+		       </tr>
+		{% endfor %}
+			   </tbody>
+            {% endfor %}
+	    		</table>
+		    </div>
+		</div>
+	</div>
+
+{%endblock%}
